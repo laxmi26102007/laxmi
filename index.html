@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Student System</title>
+
+<!-- 📊 Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    text-align: center;
+}
+
+.container {
+    margin-top: 30px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    margin: auto;
+    width: 320px;
+    border-radius: 15px;
+    box-shadow: 0px 8px 20px rgba(0,0,0,0.2);
+}
+
+h1 {
+    color: white;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+button {
+    width: 95%;
+    padding: 10px;
+    margin: 8px;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+}
+
+.predict-btn { background: green; }
+.plan-btn { background: blue; }
+.chat-btn { background: orange; }
+.logout-btn { background: red; }
+
+.result-box {
+    background: #f1f1f1;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h1>🎓 Student Performance Prediction System</h1>
+
+<div class="card">
+
+<!-- 🔐 Logout -->
+<button class="logout-btn" onclick="logout()">Logout</button>
+
+<input id="hours" placeholder="Study Hours">
+<input id="attendance" placeholder="Attendance %">
+<input id="marks" placeholder="Marks">
+
+<button class="predict-btn" onclick="predict()">Predict</button>
+<button class="plan-btn" onclick="getPlan()">Get Timetable</button>
+
+<div class="result-box">
+<h3 id="result"></h3>
+<h3 id="eligibility"></h3> <!-- ✅ NEW -->
+<h4 id="advice"></h4>
+</div>
+
+<!-- 📊 Chart -->
+<canvas id="myChart" height="150"></canvas>
+
+<!-- 📅 Plan -->
+<pre id="plan"></pre>
+
+<!-- 🤖 Chat -->
+<h3>Ask AI</h3>
+<input id="chatInput" placeholder="Type question...">
+<button class="chat-btn" onclick="chat()">Send</button>
+<p id="chatReply"></p>
+
+</div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5003";
+
+// 🔐 LOGIN CHECK
+if(localStorage.getItem("loggedIn") !== "true"){
+    window.location.href = "login.html";
+}
+
+function logout(){
+    localStorage.removeItem("loggedIn");
+    window.location.href = "login.html";
+}
+
+let chart;
+
+// 🔍 Prediction
+function predict(){
+let h = Number(hours.value);
+let a = Number(attendance.value);
+let m = Number(marks.value);
+
+if(!h || !a || !m){
+    alert("Fill all fields");
+    return;
+}
+
+fetch(API + "/predict", {
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body: JSON.stringify({hours:h, attendance:a, marks:m})
+})
+.then(res=>res.json())
+.then(data=>{
+result.innerText = "Result: " + data.result;
+eligibility.innerText = "Eligibility: " + data.eligibility;
+advice.innerText = "Advice: " + data.advice;
+
+// 🎨 color for eligibility
+if(data.eligibility === "Eligible"){
+    eligibility.style.color = "green";
+}else{
+    eligibility.style.color = "red";
+}
+
+drawChart(h,m);
+})
+.catch(()=>alert("Prediction error"));
+}
+
+// 📊 Chart
+function drawChart(h, m){
+
+h = Number(h);
+m = Number(m);
+
+const ctx = document.getElementById("myChart");
+
+if(chart){
+    chart.destroy();
+}
+
+chart = new Chart(ctx, {
+type: "bar",
+data: {
+labels: ["Study Hours", "Marks"],
+datasets: [{
+label: "Student Performance",
+data: [h*10, m] // 🔥 scaled hours
+}]
+},
+options: {
+scales: {
+y: {
+beginAtZero: true,
+max: 100
+}
+}
+}
+});
+}
+
+// 📅 Timetable
+function getPlan(){
+let h = Number(hours.value);
+
+if(!h){
+    alert("Enter study hours");
+    return;
+}
+
+fetch(API + "/timetable", {
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body: JSON.stringify({hours:h})
+})
+.then(res=>res.json())
+.then(data=>{
+plan.innerText = data.plan;
+})
+.catch(()=>{
+plan.innerText = "⚠️ Error loading timetable";
+});
+}
+
+// 🤖 Chatbot
+function chat(){
+let msg = chatInput.value;
+
+if(!msg){
+    alert("Type something");
+    return;
+}
+
+fetch(API + "/chat", {
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body: JSON.stringify({message:msg})
+})
+.then(res=>res.json())
+.then(data=>{
+chatReply.innerText = data.reply;
+})
+.catch(()=>{
+chatReply.innerText = "⚠️ Chat error";
+});
+}
+</script>
+
+</body>
+</html>
